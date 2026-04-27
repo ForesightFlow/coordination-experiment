@@ -1,4 +1,11 @@
-# CLAUDE.md — Instructions for Claude Code
+# AGENT_INSTRUCTIONS.md
+
+> This file documents the development process and was used as instruction context
+> for AI-assisted coding (Anthropic's Claude Code). It is preserved for
+> transparency about how the harness was built. Methodology details for
+> reproducing the experiment are in README.md and in the accompanying paper.
+
+---
 
 ## Project context
 

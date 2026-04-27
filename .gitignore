@@ -6,6 +6,8 @@ dist/
 results-*.json
 results-*.jsonl
 *.png
+!analysis/phase05_bootstrap/fig_bootstrap_pairwise.png
+!analysis/phase05_bootstrap/fig_required_n.png
 *.csv
 __pycache__/
 *.pyc
