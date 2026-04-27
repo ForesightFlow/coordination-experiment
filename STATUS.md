@@ -16,6 +16,7 @@ Reference: see `CLAUDE.md` for the phase roadmap and task definitions.
 2026-04-27: Task 0.1 complete — AnthropicClient in src/clients/anthropic-client.ts; smoke test in examples/run-anthropic-smoke.ts (agentCount=1, 800 tokens, expected <$0.01/run). Run: ANTHROPIC_API_KEY=<key> npm run smoke.
 2026-04-27: Task 0.2 complete — ConfigurableAgentTools in src/tools/configurable-tools.ts; 9/9 unit tests pass (npm run test); searchWeb returns [] and description patched to [DISABLED] when webSearchEnabled=false.
 2026-04-27: Task 0.3 complete — PolymarketAgentTools in src/tools/polymarket-tools.ts; Gamma+CLOB+Tavily; in-memory caching; ≤200-point price sampling; 18/18 unit tests pass; integration test skipped without POLYMARKET_CONDITION_ID.
+2026-04-27: Task 0.4 complete — ForesightFlow source in src/sources/foresightflow.ts; Zod schema aligned to actual fixture (marketId/resolutionOutcome/volumeUsdc); JsonlForesightFlowSource + ApiForesightFlowSource stub + loadFixtureWithOutcomes; 33/33 tests pass.
 
 ## Phase 1A — Historical sandbox
 
