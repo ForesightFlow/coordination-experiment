@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the accompanying paper."
+type: software
+title: "Coordination Experiment Harness"
+abstract: >
+  Experimental harness for "Coordination as an Architectural Layer for
+  LLM-Based Multi-Agent Systems". Implements five pre-registered
+  coordination configurations evaluated on prediction markets under the
+  information-fixing principle.
+authors:
+  - family-names: Nechepurenko
+    given-names: Maksym
+  - family-names: Shuvalov
+    given-names: Pavel
+version: "0.5.0"
+date-released: "2026-04-28"
+license: MIT
+repository-code: "https://github.com/ForesightFlow/coordination-experiment"
+preferred-citation:
+  type: article
+  title: >
+    Coordination as an Architectural Layer for LLM-Based Multi-Agent Systems:
+    A Position Paper with an Information-Controlled Empirical Design
+  authors:
+    - family-names: Nechepurenko
+      given-names: Maksym
+    - family-names: Shuvalov
+      given-names: Pavel
+  year: 2026
+  # Replace with arXiv DOI once posted:
+  # doi: "10.48550/arXiv.XXXX.XXXXX"
+  # url: "https://arxiv.org/abs/XXXX.XXXXX"
+  notes: "Working paper; arXiv DOI to be added after submission"

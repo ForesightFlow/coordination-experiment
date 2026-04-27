@@ -1,0 +1,13 @@
+Token consumption breakdown by agent role
+================================================================================
+
+              role  calls  total_in_tokens  total_out_tokens  in_per_call  out_per_call  out_in_ratio  total_cost_usd  cost_per_call_usd
+          debate_1    294          3340604            260898     11362.60        887.41          0.08           23.23               0.08
+        researcher     98          2589570            189400     26424.18       1932.65          0.07           17.68               0.18
+      specialist_1     98          2262858            147290     23090.39       1502.96          0.07           15.00               0.15
+      forecaster_1    100          1428731            107455     14287.31       1074.55          0.08            9.83               0.10
+       consensus_1    100          1404155            107155     14041.55       1071.55          0.08            9.70               0.10
+   pipelineAnalyst     98          1179929            124167     12040.09       1267.01          0.11            9.00               0.09
+pipelineForecaster     98          1357309             84904     13850.09        866.37          0.06            8.91               0.09
+           planner     98          1296301             96203     13227.56        981.66          0.07            8.89               0.09
+        integrator     98          1027860             90996     10488.37        928.53          0.09            7.41               0.08

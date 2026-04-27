@@ -1,0 +1,17 @@
+Sensitivity of required n to assumed effect size
+================================================================================
+If true effect is half / observed / 1.5x of observed,
+how much data is needed at Bonferroni-corrected alpha=0.005?
+
+effect_scale                                         1.5x       half   observed
+config_a                config_b                                               
+consensus_alignment     independent_ensemble        181.0     1621.0      406.0
+                        orchestrator_specialist     171.0     1534.0      384.0
+                        peer_critique_debate        210.0     1882.0      471.0
+                        sequential_pipeline         174.0     1565.0      392.0
+independent_ensemble    orchestrator_specialist  481137.0  4330228.0  1082557.0
+                        peer_critique_debate        843.0     7587.0     1897.0
+                        sequential_pipeline        1102.0     9910.0     2478.0
+orchestrator_specialist peer_critique_debate        889.0     7998.0     2000.0
+                        sequential_pipeline        1007.0     9062.0     2266.0
+peer_critique_debate    sequential_pipeline         489.0     4395.0     1099.0

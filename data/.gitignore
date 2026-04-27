@@ -1,0 +1,5 @@
+# Large result files — archived in ForesightFlow/datasets instead.
+results-*.json
+results-*.jsonl
+# Fixture files ARE committed (fixture_phase0.jsonl, fixture_phase05.jsonl).
+!fixture_*.jsonl

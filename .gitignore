@@ -4,6 +4,7 @@ dist/
 .DS_Store
 .env
 results-*.json
+results-*.jsonl
 *.png
 *.csv
 __pycache__/

@@ -35,6 +35,15 @@ export interface RunnerOptions {
   onProgress?: (info: ProgressInfo) => void;
   /** Maximum concurrent (config, market) pairs in flight. Default 4. */
   concurrency?: number;
+  /**
+   * Keys "configName::marketIndex" already completed in a prior run.
+   * Matching predictions are skipped; their results are read from resumedResults.
+   */
+  skipPredictions?: Set<string>;
+  /** Pre-loaded MarketResult for each skipped prediction. Required when skipPredictions is non-empty. */
+  resumedResults?: Map<string, MarketResult>;
+  /** Called after each NEWLY computed prediction (not called for resumed/skipped ones). */
+  onMarketComplete?: (configName: string, result: MarketResult) => void;
 }
 
 export interface ProgressInfo {
@@ -55,7 +64,10 @@ export async function runRound(
   marketSet: MarketSet,
   options: RunnerOptions,
 ): Promise<RoundResult[]> {
-  const { configurations, llm, tools, params, modelId, onProgress } = options;
+  const {
+    configurations, llm, tools, params, modelId, onProgress,
+    skipPredictions, resumedResults, onMarketComplete,
+  } = options;
   const concurrency = Math.max(1, options.concurrency ?? 4);
 
   // For each configuration, run all markets with bounded concurrency.
@@ -70,7 +82,15 @@ export async function runRound(
         while (queue.length > 0) {
           const market = queue.shift();
           if (!market) return;
-          const result = await predictOne(config, market, llm, tools, params);
+          const key = `${config.name}::${market.index}`;
+          let result: MarketResult;
+          if (skipPredictions?.has(key)) {
+            // Resume from prior run — result was already persisted; don't re-invoke LLM.
+            result = resumedResults!.get(key)!;
+          } else {
+            result = await predictOne(config, market, llm, tools, params);
+            onMarketComplete?.(config.name, result);
+          }
           completed.push(result);
           progressCount += 1;
           onProgress?.({

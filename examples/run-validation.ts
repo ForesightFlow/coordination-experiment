@@ -21,7 +21,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 
 // Load .env from working directory before anything reads process.env.
@@ -48,6 +48,7 @@ import {
   runRound,
   type CoordinationConfigParams,
   type Market,
+  type MarketResult,
   type MarketSet,
   type RoundResult,
 } from '../src/index.js';
@@ -58,13 +59,20 @@ import {
 
 const FIXTURE_PATH = process.env.VALIDATION_FIXTURE ?? 'data/fixture_phase0.jsonl';
 const OUTPUT_PATH = process.env.VALIDATION_OUTPUT ?? 'results-validation.json';
+// JSONL mirror of OUTPUT_PATH: one MarketResult+configName per line; written
+// incrementally so a crash/alarm mid-run preserves completed predictions.
+const JSONL_PATH = OUTPUT_PATH.replace(/\.json$/, '.jsonl');
 // 0 or unset → load all; any positive integer → cap at that number.
 const MARKET_LIMIT = (() => {
   const v = parseInt(process.env.VALIDATION_LIMIT ?? '0', 10);
   return v > 0 ? v : 100_000;
 })();
 // Cost alarm: exit if cumulative spend crosses this threshold mid-run.
-const BUDGET_ALARM_USD = parseFloat(process.env.VALIDATION_BUDGET ?? '5');
+// Default raised to $150 to cover Phase 0.5 (100 markets × 5 configs ≈ $112).
+const BUDGET_ALARM_USD = parseFloat(process.env.VALIDATION_BUDGET ?? '150');
+// Early-stop: abort when architectural signal is statistically resolved.
+// Set EARLY_STOP=true to enable; off by default so legacy behaviour is preserved.
+const EARLY_STOP = process.env.EARLY_STOP === 'true';
 
 // Rates as of 2026-04-27 for claude-opus-4-6 — verify before each run.
 const INPUT_USD_PER_MILLION = 5;
@@ -107,9 +115,11 @@ async function main() {
     process.env.MODEL_TRAINING_CUTOFF ?? '2025-08-01T00:00:00Z',
   );
   console.log(`Fixture:              ${FIXTURE_PATH}`);
-  console.log(`Output:               ${OUTPUT_PATH}`);
+  console.log(`Output (JSON):        ${OUTPUT_PATH}`);
+  console.log(`Output (JSONL):       ${JSONL_PATH}`);
   console.log(`Market limit:         ${MARKET_LIMIT >= 100_000 ? 'all' : MARKET_LIMIT}`);
   console.log(`Budget alarm:         $${BUDGET_ALARM_USD}`);
+  console.log(`Early stop:           ${EARLY_STOP}`);
   console.log(`Model training cutoff: ${MODEL_TRAINING_CUTOFF.toISOString()}`);
   console.log('');
 
@@ -151,6 +161,89 @@ async function main() {
   }
   console.log('');
 
+  // ---- Bug 1: Resume from JSONL ----
+  // Each line: MarketResult + configName. Populated incrementally during the run.
+  type PersistedPrediction = MarketResult & { configName: string };
+  const skipSet = new Set<string>();
+  const resumedMap = new Map<string, MarketResult>();
+  const configurations = allConfigurations();
+
+  // Bug 3: Per-config completion maps for early-stop Brier computation.
+  let globalCompletedCount = 0;
+  const completedByConfig = new Map<string, Map<number, MarketResult>>();
+  for (const cfg of configurations) completedByConfig.set(cfg.name, new Map());
+
+  if (existsSync(JSONL_PATH)) {
+    const rawLines = readFileSync(JSONL_PATH, 'utf-8').split('\n').filter(l => l.trim());
+    for (const line of rawLines) {
+      try {
+        const rec = JSON.parse(line) as PersistedPrediction;
+        const key = `${rec.configName}::${rec.marketIndex}`;
+        const { configName: _cn, ...rest } = rec;
+        skipSet.add(key);
+        resumedMap.set(key, rest as MarketResult);
+        completedByConfig.get(rec.configName)?.set(rec.marketIndex, rest as MarketResult);
+        globalCompletedCount++;
+      } catch { /* skip malformed lines */ }
+    }
+  }
+  const totalExpected = markets.length * configurations.length;
+  const freshCount = totalExpected - skipSet.size;
+  console.log(`Predictions: ${skipSet.size} resumed from JSONL, ${freshCount} scheduled fresh (${totalExpected} total).`);
+  console.log('');
+
+  // ---- Bug 3: Early-stop checker ----
+  // Runs every 10 completions when EARLY_STOP=true.
+  // Criterion (4-SE rule, §3 spec): if gap between worst and best per-config Brier
+  // exceeds 4 × max(SE_best, SE_worst) AND n ≥ 50 common scored markets, the
+  // architectural signal is resolved at roughly p < 0.001 and further markets add
+  // cost without narrowing the conclusion.
+  function checkEarlyStop(): void {
+    const configNames = configurations.map(c => c.name);
+    const allSets = configNames.map(n => new Set(completedByConfig.get(n)!.keys()));
+    // Markets scored by every config AND with known ground-truth outcome.
+    const commonIndices = [...allSets[0]].filter(i => allSets.every(s => s.has(i)));
+    const scoreable = commonIndices.filter(i => outcomeByIndex.has(i));
+    const n = scoreable.length;
+
+    if (n < 25) {
+      console.log(`  [early-stop] n=${n} common scored markets (need 25, skipping check)`);
+      return;
+    }
+
+    const stats = configNames.map(name => {
+      const configMap = completedByConfig.get(name)!;
+      const errs = scoreable.map(i => {
+        const res = configMap.get(i)!;
+        const outcome = outcomeByIndex.get(i)!;
+        const p = ('_failure' in res) ? 0.5 : res.probability;
+        return (p - outcome) ** 2;
+      });
+      const brier = errs.reduce((a, b) => a + b, 0) / n;
+      // SE of the Brier estimator: stddev(squared-errors) / sqrt(n).
+      const variance = errs.reduce((a, b) => a + (b - brier) ** 2, 0) / n;
+      const se = Math.sqrt(variance / n);
+      return { name, brier, se };
+    });
+
+    stats.sort((a, b) => a.brier - b.brier);
+    const best = stats[0];
+    const worst = stats[stats.length - 1];
+    const gap = worst.brier - best.brier;
+    const threshold = 4 * Math.max(best.se, worst.se);
+    const msg =
+      `[early-stop] n=${n}: best=${best.name} Brier=${best.brier.toFixed(4)},` +
+      ` worst=${worst.name} Brier=${worst.brier.toFixed(4)},` +
+      ` gap=${gap.toFixed(4)}, threshold=${threshold.toFixed(4)}`;
+
+    if (gap > threshold && n >= 50) {
+      console.log(`\nArchitectural signal resolved at n=${n} — early stop triggered.`);
+      console.log(msg);
+      process.exit(0);
+    }
+    console.log(`  ${msg} (signal not yet resolved, continuing)`);
+  }
+
   // ---- Build tools ----
   // PolymarketAgentTools hits real Gamma + CLOB APIs for market data.
   // Wrapped in ConfigurableAgentTools with web search OFF (no leakage).
@@ -166,18 +259,44 @@ async function main() {
     tools: configurableTools,
   });
 
+  // ---- Bug 1: onMarketComplete — incremental JSONL persistence ----
+  const startedAt = Date.now();
+
+  const onMarketComplete = (configName: string, result: MarketResult): void => {
+    appendFileSync(JSONL_PATH, JSON.stringify({ ...result, configName }) + '\n', 'utf-8');
+    completedByConfig.get(configName)?.set(result.marketIndex, result);
+    globalCompletedCount++;
+
+    // Bug 2: print cost checkpoint every 10 completions.
+    if (globalCompletedCount % 10 === 0) {
+      const cost = llm.getCumulativeCostUsd();
+      const elapsedMin = ((Date.now() - startedAt) / 60_000).toFixed(1);
+      console.log(
+        `  [checkpoint] ${globalCompletedCount} predictions done` +
+          ` | $${cost.toFixed(2)} | ${elapsedMin}min`,
+      );
+    }
+
+    // Bug 3: early-stop check every 10 completions.
+    if (EARLY_STOP && globalCompletedCount % 10 === 0) {
+      checkEarlyStop();
+    }
+  };
+
   // ---- Run all 5 configs ----
   const marketSet: MarketSet = { roundIndex: 0, markets };
   console.log(`Running all 5 configurations across ${markets.length} markets (concurrency=1)...`);
-  const startedAt = Date.now();
 
   const results: RoundResult[] = await runRound(marketSet, {
-    configurations: allConfigurations(),
+    configurations,
     llm,
     tools: configurableTools,
     params: PARAMS,
     modelId: 'claude-opus-4-6',
     concurrency: 1,
+    skipPredictions: skipSet,
+    resumedResults: resumedMap,
+    onMarketComplete,
     onProgress: info => {
       const pct = Math.round(
         (info.marketsCompletedInRound / info.marketsTotalInRound) * 100,
@@ -189,7 +308,7 @@ async function main() {
           ` (${info.marketsCompletedInRound}/${info.marketsTotalInRound}, ${pct}%)` +
           ` | $${cumulativeCost.toFixed(2)} | ${elapsedMin}min`,
       );
-      // Mid-run budget alarm.
+      // Mid-run budget alarm: JSONL persistence means completed work is already on disk.
       if (cumulativeCost > BUDGET_ALARM_USD) {
         console.error(
           `\nBUDGET ALARM: cumulative cost $${cumulativeCost.toFixed(2)} crossed` +
