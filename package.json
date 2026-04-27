@@ -1,0 +1,42 @@
+{
+  "name": "coordination-experiment",
+  "version": "0.1.0",
+  "description": "Coordination harness for the LLM-MAS architectural layer experiment (Nechepurenko & Shuvalov, 2026)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "mock": "tsc && node dist/examples/run-mock-experiment.js",
+    "smoke": "tsc && node dist/examples/run-anthropic-smoke.js",
+    "clean": "rm -rf dist"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "llm",
+    "multi-agent",
+    "coordination",
+    "prediction-markets",
+    "brier-score",
+    "murphy-decomposition",
+    "polymarket",
+    "foresight-arena"
+  ],
+  "author": "Maksym Nechepurenko, Pavel Shuvalov",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1"
+  }
+}
