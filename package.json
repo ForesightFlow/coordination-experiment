@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "mock": "tsc && node dist/examples/run-mock-experiment.js",
     "smoke": "tsc && node dist/examples/run-anthropic-smoke.js",
+    "validate": "tsc && node dist/examples/run-validation.js",
     "test": "tsc && node --test dist/tests/*.test.js",
     "clean": "rm -rf dist"
   },
