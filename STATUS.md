@@ -14,6 +14,7 @@ Reference: see `CLAUDE.md` for the phase roadmap and task definitions.
 ## Phase 0 — Method validation
 
 2026-04-27: Task 0.1 complete — AnthropicClient in src/clients/anthropic-client.ts; smoke test in examples/run-anthropic-smoke.ts (agentCount=1, 800 tokens, expected <$0.01/run). Run: ANTHROPIC_API_KEY=<key> npm run smoke.
+2026-04-27: Task 0.2 complete — ConfigurableAgentTools in src/tools/configurable-tools.ts; 9/9 unit tests pass (npm run test); searchWeb returns [] and description patched to [DISABLED] when webSearchEnabled=false.
 
 ## Phase 1A — Historical sandbox
 
