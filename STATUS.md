@@ -18,6 +18,7 @@ Reference: see `CLAUDE.md` for the phase roadmap and task definitions.
 2026-04-27: Task 0.3 complete — PolymarketAgentTools in src/tools/polymarket-tools.ts; Gamma+CLOB+Tavily; in-memory caching; ≤200-point price sampling; 18/18 unit tests pass; integration test skipped without POLYMARKET_CONDITION_ID.
 2026-04-27: Task 0.4 complete — ForesightFlow source in src/sources/foresightflow.ts; Zod schema aligned to actual fixture (marketId/resolutionOutcome/volumeUsdc); JsonlForesightFlowSource + ApiForesightFlowSource stub + loadFixtureWithOutcomes; 33/33 tests pass.
 2026-04-27: Task 0.5 complete — Phase 0 validation runner in examples/run-validation.ts; loads 10 post-cutoff markets, PolymarketAgentTools+ConfigurableAgentTools (web OFF), all 5 configs, annotates outcomes, murphy.py leaderboard. Run: ANTHROPIC_API_KEY=<key> npm run validate.
+2026-04-27: Phase 0 shakedown PASSED — 50/50 predictions, $11.22 cost, 1.75M tokens, 19min. Leaderboard: sequential_pipeline Brier=0.027, consensus_alignment=0.031, orchestrator_specialist=0.032, peer_critique_debate=0.040, independent_ensemble=0.044. All RES=0.25 (max discriminability on 10-market set). Fix log: (1) improved ApiError to include HTTP status+body; (2) .env auto-loader in examples; (3) retry w/ full-jitter backoff for 429s; (4) agentCount=1 for Phase 0 to stay under 30K-token/min limit.
 
 ## Phase 1A — Historical sandbox
 

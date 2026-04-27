@@ -51,6 +51,43 @@ export interface AnthropicClientConfig {
    * The method names must match the tool names in TOOL_DEFINITIONS exactly.
    */
   tools?: AgentTools;
+  /**
+   * Maximum 429 retry attempts per API call (exponential backoff + jitter).
+   * Default 6. Set to 0 to disable retry logic.
+   */
+  maxRetries?: number;
+}
+
+// --------------------------------------------------------------------------
+// Error detail extraction
+// --------------------------------------------------------------------------
+
+/**
+ * Produce a human-readable summary of an SDK or network error.
+ * Covers Anthropic.APIError (has status + parsed body) and plain Errors.
+ */
+function describeError(err: unknown): string {
+  if (err instanceof Anthropic.APIError) {
+    const parts: string[] = [`[${err.name}]`];
+    if (err.status !== undefined) parts.push(`HTTP ${err.status}`);
+    parts.push(err.message);
+    if (err.error != null) {
+      const body = JSON.stringify(err.error);
+      parts.push(`body: ${body.slice(0, 500)}`);
+    }
+    // requestID is present on HTTP errors (not on connection errors)
+    const reqId = (err as { requestID?: string }).requestID;
+    if (reqId) parts.push(`requestID: ${reqId}`);
+    return parts.join(' | ');
+  }
+  if (err instanceof Error) {
+    return `[${err.name}] ${err.message}`;
+  }
+  try {
+    return JSON.stringify(err).slice(0, 500);
+  } catch {
+    return String(err);
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -59,6 +96,7 @@ export interface AnthropicClientConfig {
 
 export class AnthropicClient implements LLMClient {
   private readonly sdk: Anthropic;
+  private readonly maxRetries: number;
 
   constructor(private readonly config: AnthropicClientConfig) {
     const apiKey = config.apiKey ?? process.env.ANTHROPIC_API_KEY;
@@ -67,7 +105,9 @@ export class AnthropicClient implements LLMClient {
         'No Anthropic API key found. Set ANTHROPIC_API_KEY or pass apiKey in config.',
       );
     }
-    this.sdk = new Anthropic({ apiKey });
+    // Disable the SDK's built-in retry so our own backoff logic is the only one.
+    this.sdk = new Anthropic({ apiKey, maxRetries: 0 });
+    this.maxRetries = config.maxRetries ?? 6;
   }
 
   async generate(req: GenerateRequest): Promise<GenerateResponse> {
@@ -93,19 +133,14 @@ export class AnthropicClient implements LLMClient {
 
     // Tool-use loop: continue until model stops calling tools or hits max_tokens.
     for (;;) {
-      let response: Anthropic.Messages.Message;
-      try {
-        response = await this.sdk.messages.create({
-          model: this.config.modelId,
-          system: req.systemPrompt,
-          messages,
-          tools: anthropicTools,
-          max_tokens: req.maxTokens ?? 1024,
-          temperature: req.temperature,
-        });
-      } catch (err) {
-        throw new ApiError('Anthropic API call failed', err);
-      }
+      const response = await this.callWithRetry({
+        model: this.config.modelId,
+        system: req.systemPrompt,
+        messages,
+        tools: anthropicTools,
+        max_tokens: req.maxTokens ?? 1024,
+        temperature: req.temperature,
+      });
 
       totalInputTokens += response.usage.input_tokens;
       totalOutputTokens += response.usage.output_tokens;
@@ -169,6 +204,40 @@ export class AnthropicClient implements LLMClient {
       modelId: this.config.modelId,
       durationMs,
     };
+  }
+
+  /**
+   * Single API call with exponential-backoff retry on 429.
+   * Respects the `retry-after` response header when present.
+   */
+  private async callWithRetry(
+    params: Anthropic.Messages.MessageCreateParamsNonStreaming,
+  ): Promise<Anthropic.Messages.Message> {
+    const BASE_MS = 2000;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.sdk.messages.create(params);
+      } catch (err) {
+        const is429 = err instanceof Anthropic.APIError && err.status === 429;
+        if (is429 && attempt < this.maxRetries) {
+          const retryAfterSec = Number(
+            (err as { headers?: { get?: (k: string) => string | null } }).headers?.get?.('retry-after') ?? 0,
+          );
+          // Full-jitter backoff: random in [0, cap] so concurrent callers
+          // don't all retry at the same instant (thundering herd).
+          const cap = Math.min(BASE_MS * Math.pow(2, attempt), 60_000);
+          const delayMs = retryAfterSec > 0
+            ? retryAfterSec * 1000
+            : Math.random() * cap;
+          process.stderr.write(
+            `[AnthropicClient] 429 rate-limited, retry ${attempt + 1}/${this.maxRetries} in ${Math.round(delayMs / 1000)}s\n`,
+          );
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw new ApiError(`Anthropic API call failed: ${describeError(err)}`, err);
+      }
+    }
   }
 
   private async executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {

@@ -12,7 +12,23 @@
  * Fails immediately with a clear message if ANTHROPIC_API_KEY is unset.
  */
 
+import { readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
+
+// Load .env from working directory before anything reads process.env.
+(function loadDotEnv() {
+  try {
+    const lines = readFileSync('.env', 'utf-8').split('\n');
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t || t.startsWith('#') || !t.includes('=')) continue;
+      const eq = t.indexOf('=');
+      const key = t.slice(0, eq).trim();
+      const val = t.slice(eq + 1).trim();
+      if (key && !(key in process.env)) process.env[key] = val;
+    }
+  } catch { /* no .env — fine */ }
+})();
 import { AnthropicClient } from '../src/clients/anthropic-client.js';
 import {
   IndependentEnsemble,

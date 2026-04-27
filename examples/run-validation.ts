@@ -22,7 +22,24 @@
  */
 
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
+
+// Load .env from working directory before anything reads process.env.
+// Only sets variables that are not already present in the environment.
+(function loadDotEnv() {
+  try {
+    const lines = readFileSync('.env', 'utf-8').split('\n');
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t || t.startsWith('#') || !t.includes('=')) continue;
+      const eq = t.indexOf('=');
+      const key = t.slice(0, eq).trim();
+      const val = t.slice(eq + 1).trim();
+      if (key && !(key in process.env)) process.env[key] = val;
+    }
+  } catch { /* no .env — fine */ }
+})();
 import { AnthropicClient } from '../src/clients/anthropic-client.js';
 import {
   allConfigurations,
@@ -48,8 +65,12 @@ const MARKET_COUNT = 10;
 const INPUT_USD_PER_MILLION = 5;
 const OUTPUT_USD_PER_MILLION = 25;
 
+// agentCount=1 for Phase 0 shakedown: single sequential agent per config so
+// max simultaneous API calls = 5 (one per config), which sits well within
+// the 30K-token/min rate limit. Phase 1A will use agentCount=3 with a
+// proper token-bucket rate limiter.
 const PARAMS: CoordinationConfigParams = {
-  agentCount: 3,
+  agentCount: 1,
   maxInternalRounds: 2,
   convergenceTolerance: 0.05,
   maxTokensPerMarket: 4000,
@@ -147,7 +168,7 @@ async function main() {
     tools: configurableTools,
     params: PARAMS,
     modelId: 'claude-opus-4-6',
-    concurrency: 2,
+    concurrency: 1,
     onProgress: info => {
       const pct = Math.round(
         (info.marketsCompletedInRound / info.marketsTotalInRound) * 100,
