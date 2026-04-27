@@ -97,6 +97,9 @@ function describeError(err: unknown): string {
 export class AnthropicClient implements LLMClient {
   private readonly sdk: Anthropic;
   private readonly maxRetries: number;
+  /** Cumulative cost across all generate() calls on this instance. */
+  private _cumulativeCostUsd = 0;
+  getCumulativeCostUsd(): number { return this._cumulativeCostUsd; }
 
   constructor(private readonly config: AnthropicClientConfig) {
     const apiKey = config.apiKey ?? process.env.ANTHROPIC_API_KEY;
@@ -192,6 +195,7 @@ export class AnthropicClient implements LLMClient {
         totalOutputTokens * this.config.outputUsdPerMillion) /
       1_000_000;
 
+    this._cumulativeCostUsd += costUsd;
     return {
       text: finalText,
       toolCalls: recordedToolCalls,

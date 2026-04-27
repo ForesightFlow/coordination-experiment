@@ -1,24 +1,23 @@
 /**
- * Phase 0 validation runner.
+ * Validation runner — Phase 0 / Phase 0.5.
  *
- * Runs all five coordination configurations against 10 real historical markets
- * from the ForesightFlow JSONL fixture, using the Anthropic API directly with
- * web search disabled (no leakage). Results are written to results-validation.json
- * and scored with the Murphy decomposition.
+ * All tuneable values are read from environment variables so a single script
+ * serves both Phase 0 (10 markets) and Phase 0.5 (100 markets) via different
+ * npm scripts.
  *
- * This is shakedown, NOT paper data. The purpose is to catch prompt failures,
- * parsing edge cases, and API quirks before Phase 1A.
- *
- * Prerequisites:
- *   ANTHROPIC_API_KEY  — required
- *   MODEL_TRAINING_CUTOFF — ISO date (default: 2025-08-01); all loaded
- *                            markets must have resolvedAt after this date
- *
- * Cost estimate: ~$2–5 depending on agent verbosity and tool call depth.
+ * Environment variables (all optional except ANTHROPIC_API_KEY):
+ *   ANTHROPIC_API_KEY      — required; also loaded from .env automatically
+ *   MODEL_TRAINING_CUTOFF  — ISO date, default 2025-08-01; markets resolved
+ *                            before this date are excluded
+ *   VALIDATION_FIXTURE     — path to JSONL fixture, default data/fixture_phase0.jsonl
+ *   VALIDATION_OUTPUT      — path for results JSON, default results-validation.json
+ *   VALIDATION_LIMIT       — max markets to load; 0 or unset = load all
+ *   VALIDATION_BUDGET      — cost alarm threshold in USD; exit if crossed mid-run
  *
  * Usage:
  *   npm run build
- *   ANTHROPIC_API_KEY=<key> node dist/examples/run-validation.js
+ *   node dist/examples/run-validation.js
+ *   # or via npm scripts: npm run validate / npm run validate-05
  */
 
 import { execSync } from 'node:child_process';
@@ -54,21 +53,27 @@ import {
 } from '../src/index.js';
 
 // --------------------------------------------------------------------------
-// Configuration
+// Configuration (env-var overridable)
 // --------------------------------------------------------------------------
 
-const FIXTURE_PATH = 'data/fixture_phase0.jsonl';
-const OUTPUT_PATH = 'results-validation.json';
-const MARKET_COUNT = 10;
+const FIXTURE_PATH = process.env.VALIDATION_FIXTURE ?? 'data/fixture_phase0.jsonl';
+const OUTPUT_PATH = process.env.VALIDATION_OUTPUT ?? 'results-validation.json';
+// 0 or unset → load all; any positive integer → cap at that number.
+const MARKET_LIMIT = (() => {
+  const v = parseInt(process.env.VALIDATION_LIMIT ?? '0', 10);
+  return v > 0 ? v : 100_000;
+})();
+// Cost alarm: exit if cumulative spend crosses this threshold mid-run.
+const BUDGET_ALARM_USD = parseFloat(process.env.VALIDATION_BUDGET ?? '5');
 
 // Rates as of 2026-04-27 for claude-opus-4-6 — verify before each run.
 const INPUT_USD_PER_MILLION = 5;
 const OUTPUT_USD_PER_MILLION = 25;
 
-// agentCount=1 for Phase 0 shakedown: single sequential agent per config so
-// max simultaneous API calls = 5 (one per config), which sits well within
-// the 30K-token/min rate limit. Phase 1A will use agentCount=3 with a
-// proper token-bucket rate limiter.
+// agentCount=1 for Phase 0/0.5 shakedown: single sequential agent per config
+// so max simultaneous API calls = 5 (one per config), which sits within the
+// 30K-token/min rate limit. Phase 1A will use agentCount=3 with a proper
+// token-bucket rate limiter.
 const PARAMS: CoordinationConfigParams = {
   agentCount: 1,
   maxInternalRounds: 2,
@@ -101,8 +106,12 @@ async function main() {
   const MODEL_TRAINING_CUTOFF = new Date(
     process.env.MODEL_TRAINING_CUTOFF ?? '2025-08-01T00:00:00Z',
   );
+  console.log(`Fixture:              ${FIXTURE_PATH}`);
+  console.log(`Output:               ${OUTPUT_PATH}`);
+  console.log(`Market limit:         ${MARKET_LIMIT >= 100_000 ? 'all' : MARKET_LIMIT}`);
+  console.log(`Budget alarm:         $${BUDGET_ALARM_USD}`);
   console.log(`Model training cutoff: ${MODEL_TRAINING_CUTOFF.toISOString()}`);
-  console.log(`Loading up to ${MARKET_COUNT} markets from ${FIXTURE_PATH}...`);
+  console.log('');
 
   // ---- Load markets ----
   const items = await loadFixtureWithOutcomes(FIXTURE_PATH, {
@@ -110,7 +119,7 @@ async function main() {
     resolvedBefore: new Date(),
     categories: ALL_CATEGORIES,
     minVolumeUsd: 0,
-    limit: MARKET_COUNT,
+    limit: MARKET_LIMIT,
   });
 
   if (items.length === 0) {
@@ -136,7 +145,7 @@ async function main() {
   const outcomeByIndex = new Map(items.map(it => [it.market.index, it.outcome]));
   const volumeByIndex = new Map(items.map(it => [it.market.index, it.volumeUsd]));
 
-  console.log(`Loaded ${markets.length} markets (all post-cutoff). Questions:`);
+  console.log(`Loaded ${markets.length} markets (all post-cutoff).`);
   for (const m of markets) {
     console.log(`  [${m.index}] ${m.question}`);
   }
@@ -159,7 +168,7 @@ async function main() {
 
   // ---- Run all 5 configs ----
   const marketSet: MarketSet = { roundIndex: 0, markets };
-  console.log('Running all 5 configurations (concurrency=2 to respect rate limits)...');
+  console.log(`Running all 5 configurations across ${markets.length} markets (concurrency=1)...`);
   const startedAt = Date.now();
 
   const results: RoundResult[] = await runRound(marketSet, {
@@ -173,11 +182,21 @@ async function main() {
       const pct = Math.round(
         (info.marketsCompletedInRound / info.marketsTotalInRound) * 100,
       );
-      const tokens = info.marketsCompletedInRound; // proxy for progress
-      void tokens;
+      const elapsedMin = ((Date.now() - startedAt) / 60_000).toFixed(1);
+      const cumulativeCost = llm.getCumulativeCostUsd();
       console.log(
-        `  [${info.configName}] market ${info.marketIndex} (${info.marketsCompletedInRound}/${info.marketsTotalInRound}, ${pct}%)`,
+        `  [${info.configName}] market ${info.marketIndex}` +
+          ` (${info.marketsCompletedInRound}/${info.marketsTotalInRound}, ${pct}%)` +
+          ` | $${cumulativeCost.toFixed(2)} | ${elapsedMin}min`,
       );
+      // Mid-run budget alarm.
+      if (cumulativeCost > BUDGET_ALARM_USD) {
+        console.error(
+          `\nBUDGET ALARM: cumulative cost $${cumulativeCost.toFixed(2)} crossed` +
+            ` $${BUDGET_ALARM_USD} threshold. Stopping run.`,
+        );
+        process.exit(2);
+      }
     },
   });
 
@@ -226,8 +245,8 @@ async function main() {
   console.log(`Total tokens: ${totalTokens}`);
   console.log(`Total cost:   $${totalCost.toFixed(3)}`);
 
-  if (totalCost > 5) {
-    console.warn(`Warning: cost $${totalCost.toFixed(2)} exceeded $5 Phase 0 budget.`);
+  if (totalCost > BUDGET_ALARM_USD) {
+    console.warn(`Warning: cost $${totalCost.toFixed(2)} exceeded $${BUDGET_ALARM_USD} budget.`);
   }
 
   // ---- Run Murphy decomposition ----
