@@ -166,20 +166,9 @@ To audit, diff the rendered system prompts across role keys — `COMMON_SYSTEM_H
 
 ---
 
-## License and citation
+## License
 
 [MIT License](LICENSE). Copyright (c) 2026 Maksym Nechepurenko, Pavel Shuvalov.
-
-```bibtex
-@misc{nechepurenko2026coordination,
-  author    = {Nechepurenko, Maksym and Shuvalov, Pavel},
-  title     = {Coordination as an Architectural Layer for {LLM}-Based
-               Multi-Agent Systems: A Position Paper with an
-               Information-Controlled Empirical Design},
-  year      = {2026},
-  note      = {Working paper — arXiv DOI to be added after submission}
-}
-```
 
 ---
 
