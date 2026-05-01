@@ -1,0 +1,45 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+results-*.json
+results-*.jsonl
+*.png
+!analysis/phase05_bootstrap/fig_bootstrap_pairwise.png
+!analysis/phase05_bootstrap/fig_required_n.png
+*.csv
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Claude Code working files
+CLAUDE.md
+claude.md
+.claude/
+.claude.json
+# Internal planning / task files
+TASK.md
+TASKS.md
+TASK_*.md
+TODO.md
+PLAN.md
+NOTES.md
+NOTES_FROM_IMPLEMENTATION.md
+IDEAS.md
+JOURNAL.md
+WORK_LOG.md
+AGENT_INSTRUCTIONS.md
+STATUS.md
+WIP_*
+_DRAFT_*
+ROUND*_PROMPT.md
+# Internal reports / working dirs
+/reports/
+/notes/
+/journal/
+/_internal/
+/_drafts/
+.env.local
+*.pem
+*.key

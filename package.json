@@ -1,0 +1,53 @@
+{
+  "name": "coordination-experiment",
+  "version": "0.1.0",
+  "description": "Coordination harness for the LLM-MAS architectural layer experiment (Nechepurenko & Shuvalov, 2026)",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
+    }
+  },
+  "scripts": {
+    "prepare": "npm run build",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "mock": "tsc && node dist/examples/run-mock-experiment.js",
+    "smoke": "tsc && node dist/examples/run-anthropic-smoke.js",
+    "validate": "tsc && node dist/examples/run-validation.js",
+    "validate-05": "tsc && VALIDATION_FIXTURE=data/fixture_phase05.jsonl VALIDATION_OUTPUT=results-validation-05.json VALIDATION_BUDGET=200 node dist/examples/run-validation.js",
+    "test": "tsc && node --test dist/tests/*.test.js",
+    "clean": "rm -rf dist"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "llm",
+    "multi-agent",
+    "coordination",
+    "prediction-markets",
+    "brier-score",
+    "murphy-decomposition",
+    "polymarket",
+    "foresight-arena"
+  ],
+  "author": "Maksym Nechepurenko, Pavel Shuvalov",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
+    "zod": "^4.3.6"
+  }
+}

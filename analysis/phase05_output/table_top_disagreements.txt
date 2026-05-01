@@ -1,0 +1,83 @@
+Top 10 markets by inter-config probability stdev
+================================================================================
+
+market 66  stdev=0.278  baseline=0.587  outcome=1
+  Q: Will WTI Crude Oil (WTI) hit (LOW) $100 in April?
+    consensus_alignment       0.150
+    independent_ensemble      0.580
+    orchestrator_specialist   0.550
+    peer_critique_debate      0.120
+    sequential_pipeline       0.850
+
+market 52  stdev=0.218  baseline=0.162  outcome=1
+  Q: Will Microsoft (MSFT) close above $410 on February 9?
+    consensus_alignment       0.180
+    independent_ensemble      0.180
+    orchestrator_specialist   0.160
+    peer_critique_debate      0.180
+    sequential_pipeline       0.720
+
+market 92  stdev=0.199  baseline=0.873  outcome=1
+  Q: Will Renate Reinsve be nominated for Best Actress at the 98th Academy Awards?
+    consensus_alignment       0.350
+    independent_ensemble      0.850
+    orchestrator_specialist   0.870
+    peer_critique_debate      0.840
+    sequential_pipeline       0.830
+
+market 71  stdev=0.129  baseline=0.401  outcome=1
+  Q: Will Israel strike Gaza on October 30?
+    consensus_alignment       0.450
+    independent_ensemble      0.800
+    orchestrator_specialist   0.500
+    peer_critique_debate      0.620
+    sequential_pipeline       0.480
+
+market 89  stdev=0.101  baseline=0.537  outcome=1
+  Q: GPT-5.3 released by February 14, 2026?
+    consensus_alignment       0.250
+    independent_ensemble      0.520
+    orchestrator_specialist   0.480
+    peer_critique_debate      0.470
+    sequential_pipeline       0.520
+
+market 32  stdev=0.100  baseline=0.502  outcome=1
+  Q: Spread: Bills (-7.5)
+    consensus_alignment       0.500
+    independent_ensemble      0.500
+    orchestrator_specialist   0.500
+    peer_critique_debate      0.500
+    sequential_pipeline       0.250
+
+market 63  stdev=0.098  baseline=0.244  outcome=0
+  Q: Will Google (GOOGL) close above $340 end of January?
+    consensus_alignment       0.240
+    independent_ensemble      0.240
+    orchestrator_specialist   0.040
+    peer_critique_debate      0.040
+    sequential_pipeline       0.240
+
+market 3  stdev=0.087  baseline=0.332  outcome=0
+  Q: MicroStrategy announces >1000 BTC purchase January 13-19?
+    consensus_alignment       0.550
+    independent_ensemble      0.580
+    orchestrator_specialist   0.400
+    peer_critique_debate      0.450
+    sequential_pipeline       0.350
+
+market 12  stdev=0.066  baseline=0.234  outcome=0
+  Q: Will Metamask daily perps revenue hit $100k in 2025?
+    consensus_alignment       0.220
+    independent_ensemble      0.200
+    orchestrator_specialist   0.050
+    peer_critique_debate      0.220
+    sequential_pipeline       0.220
+
+market 90  stdev=0.061  baseline=0.609  outcome=1
+  Q: GPT-5.5 released by April 30, 2026?
+    consensus_alignment       0.550
+    independent_ensemble      0.580
+    orchestrator_specialist   0.420
+    peer_critique_debate      0.590
+    sequential_pipeline       0.520
+
